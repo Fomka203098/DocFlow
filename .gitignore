@@ -1,0 +1,28 @@
+# Secrets and local settings
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Local documents and OCR outputs
+data/
+uploads/
+outputs/
+*.pdf
+*.doc
+*.docx
+*.png
+*.jpg
+*.jpeg
+*.tif
+*.tiff
+
+# Python and editor files
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.idea/
+.vscode/
+
