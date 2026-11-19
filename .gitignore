@@ -17,6 +17,8 @@ outputs/
 *.jpeg
 *.tif
 *.tiff
+!/doccheck/frontend/document-stack.png
+!/doccheck/dataset-starter/images/synthetic-*.png
 
 # Python and editor files
 __pycache__/

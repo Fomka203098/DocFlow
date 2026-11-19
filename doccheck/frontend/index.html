@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="ru" data-type="software">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#ffffff">
+  <title>DocFlow · Проверка документов</title>
+  <link rel="icon" href="/docflow-logo.svg?v=2" type="image/svg+xml">
+  <link rel="stylesheet" href="/styles.css?v=7">
+  <script src="/app.js?v=7" defer></script>
+</head>
+<body>
+  <header class="site-header">
+    <div class="header-inner">
+      <a class="brand" href="#new" aria-label="DocFlow — главная"><img class="brand-mark" src="/docflow-logo.svg?v=2" width="34" height="34" alt="">DocFlow</a>
+      <nav aria-label="Разделы">
+        <a class="nav-item active" data-page="new" href="#new" aria-current="page">Новая проверка</a>
+        <a class="nav-item" data-page="history" href="#history">История <span id="history-count" class="nav-count">0</span></a>
+        <a class="nav-item" data-page="rules" href="#rules">Правила</a>
+      </nav>
+      <div class="connection"><span id="connection-dot" class="dot"></span><span id="connection-label" role="status">Проверяем соединение</span><button id="refresh-status" class="icon-button refresh" type="button" aria-label="Проверить подключение" title="Проверить подключение">↻</button></div>
+    </div>
+  </header>
+
+  <main class="workspace" id="main-content">
+    <section id="page-new" class="page" aria-labelledby="new-title">
+      <div class="hero">
+        <div class="hero-copy">
+          <h1 id="new-title" tabindex="-1">Проверка документов</h1>
+          <p>Загрузите заявление, договор, счёт или другой документ. Qwen определит его вид и подберёт план проверки.</p>
+          <button class="button hero-button choose-file">Выбрать документ <span aria-hidden="true">↗</span></button>
+        </div>
+        <div class="scan-demo" aria-hidden="true">
+          <div class="scan-frame">
+            <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+            <img class="document-stack" src="/document-stack.png" width="1280" height="1280" alt="" fetchpriority="high">
+            <div class="scan-beam"></div>
+            <div class="scan-result"><span class="scan-tick"></span> Поля проверены</div>
+          </div>
+        </div>
+      </div>
+
+      <div id="offline-banner" class="banner error hidden" role="status"><strong>Нет связи с Qwen.</strong> Запустите LM Studio и включите локальный сервер. <button id="reconnect" class="text-button">Проверить снова</button></div>
+
+      <div class="upload-layout">
+        <section class="card upload-card" aria-labelledby="upload-title">
+          <div class="panel-header"><h2 id="upload-title">Документ для проверки</h2><span>Один файл · до 15 МБ</span></div>
+          <div class="dropzone" id="dropzone">
+            <input id="file-input" type="file" accept=".jpg,.jpeg,.png,.webp,.pdf,.docx" aria-label="Выберите документ" hidden>
+            <span class="upload-symbol" aria-hidden="true"></span>
+            <div><button type="button" class="text-button choose-file">Выберите файл</button> или перетащите его сюда.<p>JPG, PNG, WEBP, DOCX или PDF до трёх страниц.</p></div>
+          </div>
+          <div id="selected-file" class="selected-file hidden">
+            <span class="file-icon selected-icon" aria-hidden="true"></span>
+            <div><strong id="selected-name"></strong><small id="selected-size"></small></div>
+            <button id="remove-file" class="icon-button" type="button" aria-label="Убрать выбранный файл" title="Убрать выбранный файл">×</button>
+          </div>
+          <p id="file-error" class="form-error hidden" role="alert"></p>
+          <div class="upload-footer"><p id="action-status" aria-live="polite">Выберите файл для начала</p><button id="check-button" class="button primary" disabled><span id="check-label">Проверить документ</span><span aria-hidden="true">→</span></button></div>
+        </section>
+
+        <section class="checklist-card" aria-labelledby="checks-title">
+          <h2 id="checks-title">Как проходит проверка</h2>
+          <ul class="checklist"><li>Определение вида</li><li>Проверка полей</li><li>Проверка дат</li><li>Цитаты из оригинала</li></ul>
+          <div class="ocr-config">
+            <p><strong>OCR для фото и сканов</strong><br><span id="ocr-label">Проверяем настройку OCR…</span></p>
+            <dl id="ocr-models" class="hidden">
+              <div><dt>Поиск строк</dt><dd id="ocr-detector"></dd></div>
+              <div><dt>Чтение текста</dt><dd id="ocr-recognizer"></dd></div>
+            </dl>
+          </div>
+          <button class="text-button" data-page="rules">Планы проверки <span aria-hidden="true">→</span></button>
+        </section>
+      </div>
+
+      <section class="recent-section" aria-labelledby="recent-title">
+        <div class="panel-header"><h2 id="recent-title">Последние проверки <span id="recent-count" class="count">0</span></h2><button class="text-button" data-page="history">Вся история <span aria-hidden="true">→</span></button></div>
+        <div id="recent-list"></div>
+      </section>
+    </section>
+
+    <section id="page-history" class="page hidden" aria-labelledby="history-title">
+      <div class="page-heading">
+        <div><h1 id="history-title" tabindex="-1">История проверок</h1><p>Здесь хранятся оригиналы и отчёты по загруженным документам.</p></div>
+        <button class="button primary" data-page="new">Новая проверка <span aria-hidden="true">+</span></button>
+      </div>
+      <div class="card history-panel">
+        <label class="search-label">Поиск по имени файла<input id="search" type="search" placeholder="Введите название документа" autocomplete="off"></label>
+        <div id="history-list"></div>
+      </div>
+    </section>
+
+    <section id="page-rules" class="page hidden" aria-labelledby="rules-title">
+      <div class="page-heading">
+        <div><h1 id="rules-title" tabindex="-1">Правила проверки</h1><p>Qwen определяет вид документа по содержанию. От него зависит список полей в отчёте.</p></div>
+        <button class="button primary" data-page="new">Новая проверка <span aria-hidden="true">→</span></button>
+      </div>
+      <div class="rules-layout">
+        <section class="card rules-card">
+          <h2>Планы по видам документов</h2>
+          <dl class="rule-list" id="document-plans"></dl>
+          <p class="section-note">Если вид не определён, применяется общий план.</p>
+        </section>
+        <section class="rules-guide">
+          <h2>Как читать отчёт</h2>
+          <dl class="legend"><div><dt class="badge ok">Найдено</dt><dd>Модель извлекла значение. Сверьте его с оригиналом.</dd></div><div><dt class="badge review">Проверить</dt><dd>Поле отсутствует, не читается или требует проверки человеком.</dd></div><div><dt class="badge issue">Ошибка даты</dt><dd>Извлечённой даты нет в календаре.</dd></div></dl>
+          <p>Отчёт включает возможные противоречия внутри текста. Для планов с подписью Qwen ищет росчерк по изображению. Сверьте выводы с оригиналом.</p>
+        </section>
+      </div>
+      <section class="project-note" aria-labelledby="project-title">
+        <h2 id="project-title">О проекте DocFlow</h2>
+        <p>DocFlow — учебный проект по проверке документов. Цель команды — извлекать нужные поля и показывать человеку результат проверки вместе с фрагментами исходного документа.</p>
+        <p>В репозитории описан план развития проекта, включая сравнение инструментов распознавания текста и проверку на тестовых образцах.</p>
+        <div class="project-links">
+          <a class="text-button" href="https://github.com/Fomka203098/DocFlow" target="_blank" rel="noopener noreferrer">Репозиторий на GitHub ↗</a>
+          <a class="text-button" href="https://github.com/Fomka203098/DocFlow/blob/main/docs/roadmap.md" target="_blank" rel="noopener noreferrer">Дорожная карта ↗</a>
+          <a class="text-button" href="https://github.com/Fomka203098/DocFlow/blob/main/docs/architecture.md" target="_blank" rel="noopener noreferrer">Архитектура ↗</a>
+        </div>
+      </section>
+    </section>
+
+    <section id="page-detail" class="page hidden" aria-labelledby="document-name">
+      <button class="text-button back-button" id="back-button">← К истории проверок</button>
+      <div class="page-heading detail-title">
+        <div><h1 id="document-name" tabindex="-1"></h1><p id="document-meta"></p></div>
+        <div class="detail-actions"><button id="retry-button" class="button secondary">Повторить проверку</button><button id="delete-button" class="button danger-quiet">Удалить</button></div>
+      </div>
+      <div id="processing" class="card processing hidden" role="status">
+        <span class="scan-progress" aria-hidden="true"></span><div><strong id="processing-phase"></strong><p>Можно перейти в историю и вернуться к результату позже.</p></div>
+      </div>
+      <div id="detail-error" class="banner error hidden" role="alert"></div>
+      <div class="detail-layout">
+        <section class="report-column" aria-label="Отчёт"><div id="report"></div></section>
+        <section class="card preview-card" aria-labelledby="preview-title"><div class="panel-header"><h2 id="preview-title">Оригинал</h2><a id="original-link" class="text-button" target="_blank" rel="noopener">Открыть файл <span aria-hidden="true">↗</span></a></div><div id="preview"></div></section>
+      </div>
+    </section>
+
+    <footer class="page-footer"><a href="https://github.com/Fomka203098/DocFlow" target="_blank" rel="noopener noreferrer">GitHub ↗</a></footer>
+  </main>
+
+  <div id="toast" class="toast hidden" role="status"></div>
+  <dialog id="delete-dialog" aria-labelledby="delete-title"><h2 id="delete-title">Удалить документ?</h2><p>Файл и его отчёт будут удалены из истории.</p><div class="dialog-actions"><button class="button secondary" id="cancel-delete" autofocus>Отмена</button><button class="button danger" id="confirm-delete">Удалить документ</button></div></dialog>
+</body>
+</html>

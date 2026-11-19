@@ -1,0 +1,12 @@
+.venv/
+data/
+public-data/
+design-backups/
+__pycache__/
+.pytest_cache/
+*.log
+tools/tessdata/
+tools/tessdata-best/
+tools/paddleocr-env/
+tools/paddleocr-models/
+tools/cloudflared.exe
