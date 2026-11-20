@@ -8,6 +8,7 @@ const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, character =>
 const stateLabels = { done: 'Проверено', error: 'Ошибка проверки', queued: 'В очереди', running: 'Проверяется' };
 const stateClasses = { done: 'ok', error: 'error', queued: 'pending', running: 'pending' };
 const navPages = ['new', 'history', 'rules'];
+const supportedExtensions = new Set($('file-input').accept.split(','));
 let files = [];
 let listSignature = '';
 let selected = null;
@@ -87,8 +88,9 @@ function setFileError(message = '') {
 
 function choose(file) {
   if (!file || uploading) return;
-  if (!/\.(png|jpe?g|webp|pdf|docx)$/i.test(file.name)) {
-    setFileError('Этот формат не поддерживается. Выберите JPG, PNG, WEBP, PDF или DOCX.');
+  const extension = file.name.toLowerCase().match(/\.[^.]+$/)?.[0];
+  if (!supportedExtensions.has(extension)) {
+    setFileError('Этот формат не поддерживается. Выберите PDF, JPG, JPEG, PNG или WEBP.');
     return;
   }
   if (!file.size || file.size > 15 * 1024 * 1024) {
@@ -332,23 +334,24 @@ async function refreshDetail() {
     const mode = { vision: 'Анализ изображения', text: 'Анализ текста' }[item.mode] || stateLabels[item.status];
     $('document-meta').textContent = [formatDate(item.created), formatSize(item.size), mode].join(' · ');
     const pending = item.status === 'queued' || item.status === 'running';
+    const supported = supportedExtensions.has(item.extension);
     $('processing').classList.toggle('hidden', !pending);
     $('processing-phase').textContent = item.phase;
-    $('retry-button').disabled = pending || mutation;
+    $('retry-button').disabled = !supported || pending || mutation;
     $('delete-button').disabled = pending || mutation;
     $('detail-error').classList.toggle('hidden', !item.error);
     $('detail-error').textContent = item.error || '';
 
     const url = '/api/documents/' + encodeURIComponent(item.id) + '/file';
     $('original-link').href = url;
-    $('original-link').classList.toggle('hidden', !item.mode);
-    const previewKey = item.id + '|' + item.mode;
+    $('original-link').classList.toggle('hidden', !supported || !item.mode);
+    const previewKey = item.id + '|' + item.mode + '|' + item.extension;
     if ($('preview').dataset.key !== previewKey) {
       $('preview').dataset.key = previewKey;
-      if (!item.mode) {
+      if (!supported) {
+        $('preview').innerHTML = '<div class="empty-state"><p>Этот формат больше не поддерживается. Готовый отчёт доступен в истории.</p></div>';
+      } else if (!item.mode) {
         $('preview').innerHTML = '<div class="empty-state"><p>Предпросмотр появится после чтения файла.</p></div>';
-      } else if (item.extension === '.docx') {
-        $('preview').innerHTML = '<p class="preview-note">Извлечённый текст. Оформление и рукописные подписи здесь не отображаются.</p><pre class="preview-text">' + escapeHtml(item.extracted_text) + '</pre>';
       } else if (item.extension === '.pdf') {
         $('preview').innerHTML = '<iframe title="Оригинал документа в PDF" src="' + url + '#toolbar=0"></iframe>';
       } else {

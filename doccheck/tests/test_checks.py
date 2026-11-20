@@ -1,8 +1,7 @@
-import io
 import time
 
+import fitz
 import pytest
-from docx import Document
 from fastapi.testclient import TestClient
 
 from backend import app as server, documents
@@ -45,19 +44,18 @@ def test_report_uses_detected_plan_and_flags_invalid_payment_date():
     assert checks['buyer']['status'] == 'review'
 
 
-def test_docx_tables_are_read(tmp_path):
-    doc = Document()
-    doc.add_paragraph('Прошу принять меня на работу на должность специалиста.')
-    doc.add_table(rows=1, cols=1).cell(0,0).text = 'Иванов Иван Иванович'
-    path = tmp_path / 'a.docx'
-    doc.save(path)
+def test_pdf_text_and_image_are_read(tmp_path):
+    path = tmp_path / 'text.pdf'
+    with fitz.open() as pdf:
+        pdf.new_page().insert_text((72, 72), 'Sample document')
+        pdf.save(path)
     result = prepare_document(path)
-    assert 'Иванов' in result['text']
-    assert result['mode'] == 'text'
+    assert result['text'] == 'Sample document'
+    assert len(result['images']) == 1
+    assert result['ocr_text'] == ''
 
 
 def test_pdf_limits_and_all_pages(tmp_path):
-    import fitz
     with fitz.open() as pdf:
         for _ in range(3): pdf.new_page()
         path = tmp_path / 'pages.pdf'
@@ -86,14 +84,15 @@ def test_upload_report_retry_delete_and_security(tmp_path, monkeypatch):
     monkeypatch.setattr(server, 'UPLOADS', uploads)
     monkeypatch.setattr(server, 'extract', lambda doc: example())
     headers = {'X-Doccheck-Client':'1'}
-    doc = Document();doc.add_paragraph('Заявление. Прошу принять меня на работу. 31.02.2026')
-    buf = io.BytesIO();doc.save(buf)
+    with fitz.open() as pdf:
+        pdf.new_page().insert_text((72, 72), 'Sample application 31.02.2026')
+        content = pdf.tobytes()
     with TestClient(server.app) as client:
         assert client.post('/api/documents').status_code == 403
         assert client.get('/api/documents', headers={'Origin':'https://evil.test'}).status_code == 403
         assert client.get('/api/documents', headers={'Host':'evil.test'}).status_code == 403
         assert client.post('/api/documents', headers=headers, files={'file':('bad.exe', b'x')}).status_code == 415
-        response = client.post('/api/documents', headers=headers, files={'file':('../../test.docx', buf.getvalue())})
+        response = client.post('/api/documents', headers=headers, files={'file':('../../test.pdf', content)})
         assert response.status_code == 202
         id = response.json()['id']
         for _ in range(200):
@@ -101,7 +100,7 @@ def test_upload_report_retry_delete_and_security(tmp_path, monkeypatch):
             if item['status'] not in {'queued','running'}:break
             time.sleep(.02)
         assert item['status'] == 'done', item
-        assert item['name'] == 'test.docx'
+        assert item['name'] == 'test.pdf'
         assert item['result']['summary']['issue'] == 1
         assert 'ПРОВЕРКА ЗАЯВЛЕНИЯ' in client.get(f'/api/documents/{id}/report').text
         assert client.get(f'/api/documents/{id}/report?format=json').json()['result']
@@ -110,6 +109,11 @@ def test_upload_report_retry_delete_and_security(tmp_path, monkeypatch):
         for _ in range(200):
             if client.get(f'/api/documents/{id}').json()['status'] == 'done':break
             time.sleep(.02)
+        server.update(id, extension='.unsupported')
+        assert client.get(f'/api/documents/{id}/file').status_code == 415
+        assert client.post(f'/api/documents/{id}/retry', headers=headers).status_code == 415
+        assert client.get(f'/api/documents/{id}/report?format=json').json()['result']
+        server.update(id, extension='.pdf')
         assert client.delete(f'/api/documents/{id}',headers=headers).status_code == 200
         assert client.get(f'/api/documents/{id}').status_code == 404
         assert list(uploads.iterdir()) == []

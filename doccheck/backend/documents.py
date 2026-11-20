@@ -5,11 +5,9 @@ import logging
 import os
 import subprocess
 import warnings
-import zipfile
 from pathlib import Path
 
 import fitz
-from docx import Document
 from PIL import Image, ImageOps
 
 from .paddle_ocr_worker import DETECTOR, RECOGNIZER, MODELS, MODEL_FILES
@@ -17,7 +15,14 @@ from .paddle_ocr_worker import DETECTOR, RECOGNIZER, MODELS, MODEL_FILES
 MAX_BYTES = 15 * 1024 * 1024
 MAX_TEXT = 11000
 MAX_PAGES = 3
-EXTENSIONS = {'.png', '.jpg', '.jpeg', '.webp', '.pdf', '.docx'}
+FILE_TYPES = {
+    '.pdf': 'application/pdf',
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.png': 'image/png',
+    '.webp': 'image/webp',
+}
+SUPPORTED_FORMATS = 'Поддерживаются PDF, JPG, JPEG, PNG и WEBP.'
 Image.MAX_IMAGE_PIXELS = 24_000_000
 TOOLS = Path(__file__).resolve().parents[1] / 'tools'
 BEST_TESSDATA = TOOLS / 'tessdata-best'
@@ -127,24 +132,12 @@ def recognize_pages(pages):
 
 def prepare_document(path: Path):
     ext = path.suffix.lower()
-    if ext not in EXTENSIONS:
-        raise ValueError('Поддерживаются JPG, PNG, WEBP, PDF и DOCX.')
+    if ext not in FILE_TYPES:
+        raise ValueError(SUPPORTED_FORMATS)
     if not path.stat().st_size or path.stat().st_size > MAX_BYTES:
         raise ValueError('Файл должен быть непустым и не больше 15 МБ.')
     images, text, scan_pages, scan_numbers = [], '', [], []
-    if ext == '.docx':
-        with zipfile.ZipFile(path) as archive:
-            if sum(x.file_size for x in archive.infolist()) > 40_000_000:
-                raise ValueError('Распакованный документ слишком большой.')
-        doc = Document(path)
-        text = '\n'.join(p.text for p in doc.paragraphs)
-        for table in doc.tables:
-            text += '\n' + '\n'.join(' | '.join(c.text for c in row.cells) for row in table.rows)
-        text = text.strip()
-        if len(text) < 20:
-            raise ValueError('В Word не найден текст. Сохраните страницы с изображениями в PDF или загрузите фото.')
-        mode = 'text'
-    elif ext == '.pdf':
+    if ext == '.pdf':
         with fitz.open(path) as pdf:
             if pdf.needs_pass:
                 raise ValueError('PDF защищён паролем. Загрузите копию без пароля.')
@@ -162,7 +155,6 @@ def prepare_document(path: Path):
                 if not page_texts[page.number].strip():
                     scan_pages.append((image, url))
                     scan_numbers.append(page.number + 1)
-        mode = 'vision'
     else:
         with warnings.catch_warnings():
             warnings.simplefilter('error', Image.DecompressionBombWarning)
@@ -171,7 +163,6 @@ def prepare_document(path: Path):
                 image = prepare_image(img)
                 images.append(image_url(image))
                 scan_pages.append((image, images[-1]))
-        mode = 'vision'
     if len(text) > MAX_TEXT:
         raise ValueError('В документе больше 11 000 символов. Разделите его на отдельные заявления.')
     ocr_pages, engines = recognize_pages(scan_pages)
@@ -179,5 +170,5 @@ def prepare_document(path: Path):
         ocr_pages = [f'Страница {number}\n{recognized}' for number, recognized in zip(scan_numbers, ocr_pages)
                      if recognized.strip()]
     ocr_text = '\n\n'.join(ocr_pages)[:MAX_TEXT - len(text)].strip()
-    return {'text': text, 'images': images, 'mode': mode, 'ocr_text': ocr_text,
+    return {'text': text, 'images': images, 'mode': 'vision', 'ocr_text': ocr_text,
             'ocr_engine': ' + '.join(engines) if ocr_text else None}

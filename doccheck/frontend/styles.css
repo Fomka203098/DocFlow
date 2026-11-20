@@ -198,8 +198,6 @@ blockquote { margin: 7px 0 0; padding: 8px 10px; border-radius: 6px; background:
 .extra-card h2:not(:first-child) { margin-top: 13px; }
 .preview-card { position: sticky; top: 18px; overflow: hidden; }
 .preview-card .panel-header { padding: 16px 20px; border-bottom: 1px solid var(--rule); margin: 0; }
-.preview-note { padding: 10px 20px; background: #f0f2f8; color: var(--mid); font-size: 13px; }
-.preview-text { font: 16px/1.65 Georgia, serif; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 590px; overflow: auto; padding: 23px; margin: 0; }
 #preview img { display: block; width: 100%; max-height: 670px; object-fit: contain; }
 #preview iframe { display: block; width: 100%; min-height: 540px; border: 0; }
 .processing { display: flex; align-items: center; gap: 14px; padding: 13px 16px; margin-bottom: 16px; }

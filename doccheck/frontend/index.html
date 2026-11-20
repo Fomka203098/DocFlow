@@ -6,8 +6,8 @@
   <meta name="theme-color" content="#ffffff">
   <title>DocFlow · Проверка документов</title>
   <link rel="icon" href="/docflow-logo.svg?v=2" type="image/svg+xml">
-  <link rel="stylesheet" href="/styles.css?v=7">
-  <script src="/app.js?v=7" defer></script>
+  <link rel="stylesheet" href="/styles.css?v=8">
+  <script src="/app.js?v=8" defer></script>
 </head>
 <body>
   <header class="site-header">
@@ -46,9 +46,9 @@
         <section class="card upload-card" aria-labelledby="upload-title">
           <div class="panel-header"><h2 id="upload-title">Документ для проверки</h2><span>Один файл · до 15 МБ</span></div>
           <div class="dropzone" id="dropzone">
-            <input id="file-input" type="file" accept=".jpg,.jpeg,.png,.webp,.pdf,.docx" aria-label="Выберите документ" hidden>
+            <input id="file-input" type="file" accept=".jpg,.jpeg,.png,.webp,.pdf" aria-label="Выберите документ" hidden>
             <span class="upload-symbol" aria-hidden="true"></span>
-            <div><button type="button" class="text-button choose-file">Выберите файл</button> или перетащите его сюда.<p>JPG, PNG, WEBP, DOCX или PDF до трёх страниц.</p></div>
+            <div><button type="button" class="text-button choose-file">Выберите файл</button> или перетащите его сюда.<p>JPG, JPEG, PNG, WEBP или PDF до трёх страниц.</p></div>
           </div>
           <div id="selected-file" class="selected-file hidden">
             <span class="file-icon selected-icon" aria-hidden="true"></span>

@@ -18,7 +18,7 @@ from fastapi import FastAPI, File, HTTPException, UploadFile, Request
 from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
-from .documents import EXTENSIONS, MAX_BYTES, ocr_status, prepare_document
+from .documents import FILE_TYPES, MAX_BYTES, SUPPORTED_FORMATS, ocr_status, prepare_document
 from .engine import DOCUMENT_PLANS, MODEL, extract, make_report, model_status
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -158,8 +158,8 @@ def documents():
 def upload(file: UploadFile = File(...)):
     name = Path((file.filename or 'документ').replace('\\', '/')).name[:180]
     extension = Path(name).suffix.lower()
-    if extension not in EXTENSIONS:
-        raise HTTPException(415, 'Поддерживаются JPG, PNG, WEBP, PDF и DOCX. Старый формат DOC нужно сохранить как DOCX.')
+    if extension not in FILE_TYPES:
+        raise HTTPException(415, SUPPORTED_FORMATS)
     content = file.file.read(MAX_BYTES + 1)
     if not content or len(content) > MAX_BYTES:
         raise HTTPException(413, 'Файл должен быть непустым и не больше 15 МБ.')
@@ -190,17 +190,21 @@ def document(doc_id: str):
 @app.get('/api/documents/{doc_id}/file')
 def original(doc_id: str):
     item = get_record(doc_id)
+    extension = item['extension']
+    if extension not in FILE_TYPES:
+        raise HTTPException(415, SUPPORTED_FORMATS)
     # Never serve unvalidated uploads inline.
     if not item['mode']:
         raise HTTPException(409, 'Документ ещё не прочитан или имеет неподдерживаемое содержимое.')
-    types = {'.pdf': 'application/pdf', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.webp': 'image/webp', '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'}
-    return FileResponse(UPLOADS / (doc_id + item['extension']), media_type=types[item['extension']], filename=item['name'], content_disposition_type='attachment' if item['extension'] == '.docx' else 'inline')
+    return FileResponse(UPLOADS / (doc_id + extension), media_type=FILE_TYPES[extension], filename=item['name'], content_disposition_type='inline')
 
 
 @app.post('/api/documents/{doc_id}/retry', status_code=202)
 def retry(doc_id: str):
     with queue_lock:
         item = get_record(doc_id)
+        if item['extension'] not in FILE_TYPES:
+            raise HTTPException(415, SUPPORTED_FORMATS)
         if item['status'] not in {'done', 'error'}:
             raise HTTPException(409, 'Этот документ уже проверяется.')
         with db() as c:
