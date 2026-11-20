@@ -27,7 +27,7 @@ flowchart LR
 | [`backend/documents.py`](../doccheck/backend/documents.py) | Проверка форматов, извлечение текста PDF, подготовка изображений, выбор OCR и резервное распознавание. |
 | [`backend/paddle_ocr_worker.py`](../doccheck/backend/paddle_ocr_worker.py) | Отдельный процесс PaddleOCR на CPU. `PP-OCRv5_mobile_det` находит строки, `eslav_PP-OCRv5_mobile_rec` читает русский и английский текст. |
 | [`backend/engine.py`](../doccheck/backend/engine.py) | Запрос к локальной LM Studio, схема ответа Pydantic, планы по видам документов, календарные проверки и сборка отчёта. |
-| [`tests/`](../doccheck/tests/) и [`dataset-starter/`](../doccheck/dataset-starter/) | Автоматические проверки и восемь вымышленных заявлений с эталонной разметкой для проверки качества модели. |
+| [`tests/`](../doccheck/tests/) | Автоматические проверки обработки файлов, правил отчёта и API. |
 
 ## Обработка документа
 

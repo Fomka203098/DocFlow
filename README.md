@@ -6,4 +6,3 @@
 
 - [Архитектура и API](docs/architecture.md)
 - [Код приложения](doccheck/)
-- [Тестовый датасет](doccheck/dataset-starter/)
