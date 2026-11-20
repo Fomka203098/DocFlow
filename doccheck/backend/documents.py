@@ -25,10 +25,9 @@ FILE_TYPES = {
 SUPPORTED_FORMATS = 'Поддерживаются PDF, JPG, JPEG, PNG и WEBP.'
 Image.MAX_IMAGE_PIXELS = 24_000_000
 TOOLS = Path(__file__).resolve().parents[1] / 'tools'
-BEST_TESSDATA = TOOLS / 'tessdata-best'
-FAST_TESSDATA = TOOLS / 'tessdata'
 PADDLE_ENV = TOOLS / 'paddleocr-env'
 PADDLE_PYTHON = PADDLE_ENV / ('Scripts/python.exe' if os.name == 'nt' else 'bin/python')
+PADDLE_LABEL = f'PaddleOCR · {DETECTOR} + {RECOGNIZER} · CPU'
 log = logging.getLogger(__name__)
 
 
@@ -44,25 +43,9 @@ def image_url(image):
     return 'data:image/jpeg;base64,' + base64.b64encode(buf.getvalue()).decode()
 
 
-def ocr_config():
-    override = os.environ.get('TESSDATA_PREFIX')
-    if override:
-        tessdata = Path(override).resolve()
-    elif all((BEST_TESSDATA / f'{lang}.traineddata').is_file() for lang in ('rus', 'eng')):
-        tessdata = BEST_TESSDATA
-    else:
-        tessdata = FAST_TESSDATA
-    languages = [lang for lang in ('rus', 'eng') if (tessdata / f'{lang}.traineddata').is_file()]
-    return tessdata, languages
-
-
 def ocr_status():
-    if paddle_ocr_configured():
-        return {'engine': 'PaddleOCR', 'pack': RECOGNIZER, 'detector': DETECTOR, 'device': 'CPU',
-                'languages': ['rus', 'eng'], 'configured': True}
-    tessdata, languages = ocr_config()
-    pack = {BEST_TESSDATA: 'tessdata_best', FAST_TESSDATA: 'tessdata_fast'}.get(tessdata)
-    return {'engine': 'Tesseract', 'pack': pack, 'languages': languages, 'configured': 'rus' in languages}
+    return {'engine': 'PaddleOCR', 'pack': RECOGNIZER, 'detector': DETECTOR, 'device': 'CPU',
+            'languages': ['rus', 'eng'], 'configured': paddle_ocr_configured()}
 
 
 def paddle_ocr_configured():
@@ -93,41 +76,14 @@ def recognize_with_paddle(images):
     return texts
 
 
-def recognize_text(image):
-    tessdata, languages = ocr_config()
-    if 'rus' not in languages:
-        return ''
-    language = '+'.join(languages)
-    # The Windows Tesseract build can open relative paths inside a Cyrillic directory.
-    path = str(tessdata.relative_to(Path.cwd())) if tessdata.is_relative_to(Path.cwd()) else str(tessdata)
-    try:
-        pixmap = fitz.Pixmap(fitz.csRGB, image.width, image.height, image.tobytes(), False)
-        pdf = pixmap.pdfocr_tobytes(language=language, tessdata=path)
-        with fitz.open(stream=pdf, filetype='pdf') as document:
-            return document[0].get_text().strip()
-    except (fitz.mupdf.FzErrorBase, RuntimeError, ValueError) as error:
-        log.warning('OCR недоступен для страницы: %s', error)
-        return ''
-
-
 def recognize_pages(pages):
-    if not pages:
-        return [], []
-    texts = [''] * len(pages)
-    engines = []
-    if paddle_ocr_configured():
-        try:
-            texts = recognize_with_paddle([url for _, url in pages])
-            if any(text.strip() for text in texts):
-                engines.append(f'PaddleOCR · {DETECTOR} + {RECOGNIZER} · CPU')
-        except (OSError, subprocess.SubprocessError, ValueError) as error:
-            log.warning('PaddleOCR недоступен (%s). Используем Tesseract.', type(error).__name__)
-    for index, (image, _) in enumerate(pages):
-        if not texts[index].strip():
-            texts[index] = recognize_text(image)
-            if texts[index] and 'Tesseract' not in engines:
-                engines.append('Tesseract')
-    return texts, engines
+    if not pages or not paddle_ocr_configured():
+        return []
+    try:
+        return recognize_with_paddle(pages)
+    except (OSError, subprocess.SubprocessError, ValueError) as error:
+        log.warning('PaddleOCR недоступен (%s). Продолжаем по изображению.', type(error).__name__)
+        return []
 
 
 def prepare_document(path: Path):
@@ -153,7 +109,7 @@ def prepare_document(path: Path):
                 url = image_url(image)
                 images.append(url)
                 if not page_texts[page.number].strip():
-                    scan_pages.append((image, url))
+                    scan_pages.append(url)
                     scan_numbers.append(page.number + 1)
     else:
         with warnings.catch_warnings():
@@ -162,13 +118,13 @@ def prepare_document(path: Path):
                 img.load()
                 image = prepare_image(img)
                 images.append(image_url(image))
-                scan_pages.append((image, images[-1]))
+                scan_pages.append(images[-1])
     if len(text) > MAX_TEXT:
         raise ValueError('В документе больше 11 000 символов. Разделите его на отдельные заявления.')
-    ocr_pages, engines = recognize_pages(scan_pages)
+    ocr_pages = recognize_pages(scan_pages)
     if scan_numbers:
         ocr_pages = [f'Страница {number}\n{recognized}' for number, recognized in zip(scan_numbers, ocr_pages)
                      if recognized.strip()]
     ocr_text = '\n\n'.join(ocr_pages)[:MAX_TEXT - len(text)].strip()
     return {'text': text, 'images': images, 'mode': 'vision', 'ocr_text': ocr_text,
-            'ocr_engine': ' + '.join(engines) if ocr_text else None}
+            'ocr_engine': PADDLE_LABEL if ocr_text else None}

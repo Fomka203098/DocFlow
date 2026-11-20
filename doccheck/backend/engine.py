@@ -226,7 +226,7 @@ def make_report(extraction, document):
         checks.append({'key': 'signature', 'label': labels['signature'], 'value': {'visible': 'Росчерк обнаружен', 'blank': 'Возможно, отсутствует', 'unclear': 'Нужен просмотр оригинала'}[signature],
                        'evidence': extraction.signature_evidence if visual else '', 'status': 'review', 'message': signature_message})
     return {'document_type': kind, 'document_type_label': kind_label, 'checks': checks,
-            'ocr': document.get('ocr_engine', 'Tesseract') if document.get('ocr_text') else None,
+            'ocr': document.get('ocr_engine') if document.get('ocr_text') else None,
             'inconsistencies': [x.model_dump() for x in extraction.inconsistencies],
             'uncertainties': extraction.uncertainties, 'model': MODEL,
             'summary': {'ok': sum(c['status'] == 'ok' for c in checks), 'issue': sum(c['status'] == 'issue' for c in checks), 'review': sum(c['status'] == 'review' for c in checks)},
