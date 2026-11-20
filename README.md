@@ -4,5 +4,5 @@
 
 Фото и сканы читает PaddleOCR. Qwen 3.5 4B в LM Studio извлекает поля. FastAPI формирует отчёт, а SQLite хранит историю.
 
-- [Архитектура и API](docs/architecture.md)
+- [Технический стек](TECH_STACK.md)
 - [Код приложения](doccheck/)
